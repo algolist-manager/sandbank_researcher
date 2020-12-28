@@ -21,9 +21,8 @@ def bollinger_str(n, k, data):
     port[['too_high', 'high', 'low', 'too_low']] = port[['too_high', 'high', 'low', 'too_low']].astype('int')
 
     port['long_entry'] = port['too_high'] * (port['high'] + port['low'] + port['too_low']).shift(1, fill_value=0)
-    port['long_out'] = port['too_high'].shift(1, fill_value=0) * (port['low'] + port['too_low']) + port['high'].shift(1,
-                                                                                                                      fill_value=0) * (
-                                   port['low'] + port['too_low'])
+    port['long_out'] = port['too_high'].shift(1, fill_value=0) * (port['low'] + port['too_low']) \
+                       + port['high'].shift(1,fill_value=0) * (port['low'] + port['too_low'])
     port['short_entry'] = port['too_low'] * (port['high'] + port['low'] + port['too_high']).shift(1, fill_value=0)
     port['short_out'] = port['too_low'].shift(1, fill_value=0) * (port['too_high'] + port['high']) + port['low'].shift(
         1, fill_value=0) * (port['too_high'] + port['high'])
@@ -113,9 +112,7 @@ def backtest(data, port, commission=0.00075):
 
     n_t = port['vwap_near'].values
     f_t = port['vwap_far'].values
-    bal_t = np.zeros(period)
     pnl_t = np.zeros(period)
-    com_t = np.zeros(period)
 
     q_t = np.array([q_nt, q_ft]).T
     ret_nt = 1 / n_t - 1 / np.roll(n_t, -1)
@@ -199,6 +196,99 @@ def trade_result(port):
     return df
 
 
+"""Functions For Graph"""
+def bollinger_graph(result, sample_start, sample_end,n,k):
+    result[['spread', 'ma_n', 'upper', 'lower']].iloc[sample_start:sample_end].plot(figsize=(15, 10))
+    plt.title('Bollinger Band (n={0},k={1:.4f})'.format(n, k), fontsize=20, pad=20)
+    plt.xlabel('Date', fontsize=15)
+    plt.ylabel('Spread', fontsize=15)
+    plt.xticks(fontsize=14)
+    plt.yticks(fontsize=14)
+    plt.legend(fontsize=15)
+    plt.show()
+
+def strategy_graph(result, sample_start, sample_end):
+    result['long_in'] = (result['history'] == 'long_in') * result['spread']
+    result['short_in'] = (result['history'] == 'short_in') * result['spread']
+
+    long_in = result['long_in'].values
+    for i, spread in enumerate(long_in):
+        if spread == 0: long_in[i] = np.nan
+    result['long_in'] = long_in
+
+    short_in = result['short_in'].values
+    for i, spread in enumerate(short_in):
+        if spread == 0: short_in[i] = np.nan
+    result['short_in'] = short_in
+
+    plt.figure(figsize=(15, 10))
+
+    plt.title('Bollinger Band Strategy', fontsize=20, pad=20)
+    plt.xlabel('Date', fontsize=15)
+    plt.ylabel('Spread', fontsize=15)
+    plt.xticks(fontsize=14)
+    plt.yticks(fontsize=14)
+
+    plt.plot(result['spread'].values[sample_start:sample_end], c='black', label='spread', alpha=0.3)
+    plt.plot(result['ma_n'].values[sample_start:sample_end], label='ma_n', alpha=0.3)
+    plt.plot(result['upper'].values[sample_start:sample_end], label='upper', alpha=0.3)
+    plt.plot(result['lower'].values[sample_start:sample_end], label='lower', alpha=0.3)
+    plt.plot(result['long_in'].values[sample_start:sample_end], 'r', label='long_in')
+    plt.plot(result['short_in'].values[sample_start:sample_end], 'b', label='short_in')
+    plt.legend()
+
+    plt.legend(fontsize=15)
+    plt.show()
+
+def trade_graph(trades):
+    long_trade_returns = trades['long_trade_returns'].values
+    short_trade_returns = trades['short_trade_returns'].values
+    long_period = trades['long_period'].values
+    short_period = trades['short_period'].values
+
+    plt.figure(figsize=(15, 5))
+    plt.subplot(1, 2, 1)
+    plt.title('P&L', fontsize=20, pad=15)
+    plt.scatter(x=np.arange(0, len(long_trade_returns), 1), y=long_trade_returns, label='long', c='r')
+    plt.scatter(x=np.arange(0, len(short_trade_returns), 1), y=short_trade_returns, label='short', c='b')
+    plt.ylim(-0.02, 0.04)
+    plt.ylabel('P&L')
+    plt.xlabel('trades')
+    plt.legend()
+
+    plt.subplot(1, 2, 2)
+    plt.title('Holding Period', fontsize=20, pad=15)
+    plt.scatter(x=np.arange(0, len(long_period), 1), y=long_period, label='long', c='r')
+    plt.scatter(x=np.arange(0, len(short_period), 1), y=short_period, label='short', c='b')
+    plt.ylim(-30, 550)
+    plt.ylabel('hours')
+    plt.xlabel('trades')
+    plt.legend()
+
+    plt.show()
+
+def metric_graph(compare):
+    plt.figure(figsize=(15, 5))
+    plt.subplot(1, 3, 1)
+    plt.title('Ret')
+    plt.plot(compare['ret'].values, 'bo')
+    plt.xlabel('grid')
+
+    plt.subplot(1, 3, 2)
+    plt.title('Std')
+    plt.plot(compare['std'].values, 'ro')
+    plt.xlabel('grid')
+
+    plt.subplot(1, 3, 3)
+    plt.title('Sharpe Ratio')
+    plt.xlabel('grid')
+    plt.plot(compare['sharpe_ratio'].values, 'go')
+
+    plt.show()
+
+
+
+
 def sensitive_graph(compare, n_grid, k_grid, rollover_grid):
     plt.figure(figsize=(18, 18))
     plt.subplot(3, 3, 1)
@@ -248,27 +338,6 @@ def sensitive_graph(compare, n_grid, k_grid, rollover_grid):
 
     plt.show()
 
-
-def metric_graph(compare):
-    plt.figure(figsize=(15, 5))
-    plt.subplot(1, 3, 1)
-    plt.title('Ret')
-    plt.plot(compare['ret'].values, 'bo')
-    plt.xlabel('grid')
-
-    plt.subplot(1, 3, 2)
-    plt.title('Std')
-    plt.plot(compare['std'].values, 'ro')
-    plt.xlabel('grid')
-
-    plt.subplot(1, 3, 3)
-    plt.title('Sharpe Ratio')
-    plt.xlabel('grid')
-    plt.plot(compare['sharpe_ratio'].values, 'go')
-
-    plt.show()
-
-
 def metric_summary(compare):
     print('# of grid : {0}'.format(len(compare)))
     max_ret = compare[compare['ret'] == compare['ret'].max()].values[0]
@@ -296,74 +365,13 @@ def metric_summary(compare):
           .format(max_std[4], max_std[0], max_std[1], max_std[2]))
 
 
-def trade_graph(trades):
-    long_trade_returns = trades['long_trade_returns'].values
-    short_trade_returns = trades['short_trade_returns'].values
-    long_period = trades['long_period'].values
-    short_period = trades['short_period'].values
-
-    plt.figure(figsize=(15, 5))
-    plt.subplot(1, 2, 1)
-    plt.title('P&L', fontsize=20, pad=15)
-    plt.scatter(x=np.arange(0, len(long_trade_returns), 1), y=long_trade_returns, label='long', c='r')
-    plt.scatter(x=np.arange(0, len(short_trade_returns), 1), y=short_trade_returns, label='short', c='b')
-    plt.ylim(-0.02, 0.04)
-    plt.ylabel('P&L')
-    plt.xlabel('trades')
-    plt.legend()
-
-    plt.subplot(1, 2, 2)
-    plt.title('Holding Period', fontsize=20, pad=15)
-    plt.scatter(x=np.arange(0, len(long_period), 1), y=long_period, label='long', c='r')
-    plt.scatter(x=np.arange(0, len(short_period), 1), y=short_period, label='short', c='b')
-    plt.ylim(-30, 550)
-    plt.ylabel('hours')
-    plt.xlabel('trades')
-    plt.legend()
-
-    plt.show()
 
 
-def strategy_graph(result, sample_start, sample_end):
-    result['long_in'] = (result['history'] == 'long_in') * result['spread']
-    result['short_in'] = (result['history'] == 'short_in') * result['spread']
-
-    long_in = result['long_in'].values
-    for i, spread in enumerate(long_in):
-        if spread == 0: long_in[i] = np.nan
-    result['long_in'] = long_in
-
-    short_in = result['short_in'].values
-    for i, spread in enumerate(short_in):
-        if spread == 0: short_in[i] = np.nan
-    result['short_in'] = short_in
-
-    plt.figure(figsize=(15, 10))
-
-    plt.title('Bollinger Band Strategy', fontsize=20, pad=20)
-    plt.xlabel('Date', fontsize=15)
-    plt.ylabel('Spread', fontsize=15)
-    plt.xticks(fontsize=14)
-    plt.yticks(fontsize=14)
-
-    plt.plot(result['spread'].values[sample_start:sample_end], c='black', label='spread', alpha=0.3)
-    plt.plot(result['ma_n'].values[sample_start:sample_end], label='ma_n', alpha=0.3)
-    plt.plot(result['upper'].values[sample_start:sample_end], label='upper', alpha=0.3)
-    plt.plot(result['lower'].values[sample_start:sample_end], label='lower', alpha=0.3)
-    plt.plot(result['long_in'].values[sample_start:sample_end], 'r', label='long_in')
-    plt.plot(result['short_in'].values[sample_start:sample_end], 'b', label='short_in')
-    plt.legend()
-
-    plt.legend(fontsize=15)
-    plt.show()
 
 
-def bollinger_graph(result, sample_start, sample_end,n,k):
-    result[['spread', 'ma_n', 'upper', 'lower']].iloc[sample_start:sample_end].plot(figsize=(15, 10))
-    plt.title('Bollinger Band (n={0},k={1:.4f})'.format(n, k), fontsize=20, pad=20)
-    plt.xlabel('Date', fontsize=15)
-    plt.ylabel('Spread', fontsize=15)
-    plt.xticks(fontsize=14)
-    plt.yticks(fontsize=14)
-    plt.legend(fontsize=15)
-    plt.show()
+
+
+
+
+
+
