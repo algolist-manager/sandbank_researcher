@@ -246,12 +246,18 @@ def trade_graph(trades):
     long_period = trades['long_period'].values
     short_period = trades['short_period'].values
 
+    max_ret = trades['long_trade_returns'].max() * 1.1
+    min_ret = trades['short_trade_returns'].min() * 1.1
+    max_period = trades['long_period'].max() + 30
+    min_period = trades['short_period'].min() - 30
+
     plt.figure(figsize=(15, 5))
+
     plt.subplot(1, 2, 1)
     plt.title('P&L', fontsize=20, pad=15)
     plt.scatter(x=np.arange(0, len(long_trade_returns), 1), y=long_trade_returns, label='long', c='r')
     plt.scatter(x=np.arange(0, len(short_trade_returns), 1), y=short_trade_returns, label='short', c='b')
-    plt.ylim(-0.02, 0.04)
+    plt.ylim(min_ret, max_ret)
     plt.ylabel('P&L')
     plt.xlabel('trades')
     plt.legend()
@@ -260,7 +266,7 @@ def trade_graph(trades):
     plt.title('Holding Period', fontsize=20, pad=15)
     plt.scatter(x=np.arange(0, len(long_period), 1), y=long_period, label='long', c='r')
     plt.scatter(x=np.arange(0, len(short_period), 1), y=short_period, label='short', c='b')
-    plt.ylim(-30, 550)
+    plt.ylim(min_period, max_period)
     plt.ylabel('hours')
     plt.xlabel('trades')
     plt.legend()
